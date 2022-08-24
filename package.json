@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "start": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "mqtt": "^4.3.7"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.19"
+  }
+}
