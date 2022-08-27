@@ -18,6 +18,7 @@ client.on('connect', () => {
 
 client.on('message', (topic, message) => {
   // message is Buffer
+  console.log(new Date())
   console.log(message.toString())
   console.log()
   //$ client.end()
