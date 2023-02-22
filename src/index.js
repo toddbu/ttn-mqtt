@@ -24,7 +24,7 @@ mqttClient.on('connect', () => {
   })
 })
 
-mqttClient.on('message', (topic, message) => {
+mqttClient.on('message', async (topic, message) => {
   // message is Buffer
   const uplinkMessage = JSON.parse(message.toString()).uplink_message
   console.log(`${uplinkMessage.received_at} - ${uplinkMessage.decoded_payload.temp}F`)
@@ -37,8 +37,7 @@ mqttClient.on('message', (topic, message) => {
     uplinkMessage.decoded_payload.temp
   ]
 
-  //$ How to make async?
-  cassandraClient.execute(query, params, { prepare: true });
+  await cassandraClient.execute(query, params, { prepare: true });
 
   //$ mqttClient.end()
 })
