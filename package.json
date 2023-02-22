@@ -3,6 +3,7 @@
     "start": "nodemon src/index.js"
   },
   "dependencies": {
+    "cassandra-driver": "^4.6.4",
     "mqtt": "^4.3.7"
   },
   "devDependencies": {
