@@ -5,7 +5,7 @@ const client = mqtt.connect('mqtts://nam1.cloud.thethings.network:8883', {
 })
 
 client.on('connect', () => {
-  client.subscribe('v3/toddbu-temperature@ttn/devices/pico-98-76-b6-12-04-38/up', (err) => {
+  client.subscribe('v3/toddbu-temperature@ttn/devices/eui-9876b60000120438/up', (err) => {
     if (err) {
       console.log(err)
 
@@ -18,8 +18,9 @@ client.on('connect', () => {
 
 client.on('message', (topic, message) => {
   // message is Buffer
-  console.log(new Date())
-  console.log(message.toString())
-  console.log()
+  //$ console.log(new Date())
+  const uplinkMessage = JSON.parse(message.toString()).uplink_message
+  console.log(`${uplinkMessage.received_at} - ${uplinkMessage.decoded_payload.temp}F`)
+  //$ console.log()
   //$ client.end()
 })
