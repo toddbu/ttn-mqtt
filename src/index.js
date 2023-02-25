@@ -1,4 +1,5 @@
 const mqtt = require('mqtt')
+const request = require('request')
 const cassandra = require('cassandra-driver');
 
 const cassandraClient = new cassandra.Client({
@@ -39,5 +40,48 @@ mqttClient.on('message', async (topic, message) => {
 
   await cassandraClient.execute(query, params, { prepare: true });
 
+  //$ How to make this aync call wait???
+  const bytes = uplinkMessage.decoded_payload.bytes
+  request.post('https://nam1.cloud.thethings.network/api/v3/as/applications/toddbu-temperature/devices/eui-9876b60000120438/down/replace', {
+    headers: {
+      Authorization: 'Bearer NNSXS.OGAANBBTJQZCAG7OL6RVKB4LGXMY4EXATQUNMUQ.7YYUJILVXUKXISLEUWSDROPA45L52HQK3T4VJSUCTB53EJGOGDDA',
+      'Content-Type': 'application/json',
+      'User-Agent': 'my-integration/my-integration-version'
+    },
+    json: true,
+    body: {
+      downlinks: [
+        {
+          frm_payload: Buffer.from([bytes[0], bytes[1], bytes[2], bytes[3]]).toString('base64'),
+          f_port: 1,
+          priority: 'NORMAL'
+        }
+      ]
+    }
+  }, (err, response, body) => {
+    if (err) {
+      console.log(err)
+      return
+    }
+
+    console.log('statusCode:', response && response.statusCode)
+  })
+
   //$ mqttClient.end()
 })
+
+//$
+/*
+curl -i --location \
+  --header 'Authorization: Bearer NNSXS.OGAANBBTJQZCAG7OL6RVKB4LGXMY4EXATQUNMUQ.7YYUJILVXUKXISLEUWSDROPA45L52HQK3T4VJSUCTB53EJGOGDDA' \
+  --header 'Content-Type: application/json' \
+  --header 'User-Agent: my-integration/my-integration-version' \
+  --request POST \
+  --data '{"downlinks":[{
+      "frm_payload":"AQ==",
+      "f_port":1,
+      "priority":"NORMAL"
+    }]
+  }' \
+  https://nam1.cloud.thethings.network/api/v3/as/applications/toddbu-temperature/devices/eui-9876b60000120438/down/replace
+*/
