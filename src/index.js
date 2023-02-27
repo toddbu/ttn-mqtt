@@ -28,6 +28,10 @@ mqttClient.on('connect', () => {
 mqttClient.on('message', async (topic, message) => {
   // message is Buffer
   const uplinkMessage = JSON.parse(message.toString()).uplink_message
+  if ((typeof uplinkMessage.f_port === 'undefined') ||
+      (uplinkMessage.f_port !== 2)) {
+    return
+  }
   console.log(`${uplinkMessage.received_at} - ${uplinkMessage.decoded_payload.temp}F`)
 
 
@@ -42,7 +46,7 @@ mqttClient.on('message', async (topic, message) => {
 
   //$ How to make this aync call wait???
   const bytes = uplinkMessage.decoded_payload.bytes
-  request.post('https://nam1.cloud.thethings.network/api/v3/as/applications/toddbu-temperature/devices/eui-9876b60000120438/down/replace', {
+  request.post('https://nam1.cloud.thethings.network/api/v3/as/applications/toddbu-temperature/devices/eui-9876b60000120438/down/push', {
     headers: {
       Authorization: 'Bearer NNSXS.OGAANBBTJQZCAG7OL6RVKB4LGXMY4EXATQUNMUQ.7YYUJILVXUKXISLEUWSDROPA45L52HQK3T4VJSUCTB53EJGOGDDA',
       'Content-Type': 'application/json',
@@ -69,19 +73,3 @@ mqttClient.on('message', async (topic, message) => {
 
   //$ mqttClient.end()
 })
-
-//$
-/*
-curl -i --location \
-  --header 'Authorization: Bearer NNSXS.OGAANBBTJQZCAG7OL6RVKB4LGXMY4EXATQUNMUQ.7YYUJILVXUKXISLEUWSDROPA45L52HQK3T4VJSUCTB53EJGOGDDA' \
-  --header 'Content-Type: application/json' \
-  --header 'User-Agent: my-integration/my-integration-version' \
-  --request POST \
-  --data '{"downlinks":[{
-      "frm_payload":"AQ==",
-      "f_port":1,
-      "priority":"NORMAL"
-    }]
-  }' \
-  https://nam1.cloud.thethings.network/api/v3/as/applications/toddbu-temperature/devices/eui-9876b60000120438/down/replace
-*/
