@@ -48,15 +48,22 @@ mqttClient.on('message', async (topic, message) => {
   switch (decoded_payload.type) {
     case 0:
       console.log(`datetime request`)
-      clientDate = new Date(`${formatDateComponent(bytes[4])}${formatDateComponent(bytes[5])}-${formatDateComponent(bytes[6])}-${formatDateComponent(bytes[7])} ${formatDateComponent(bytes[8])}:${formatDateComponent(bytes[9])}:${formatDateComponent(bytes[10])}Z`)
-      timeDelta = parseInt((new Date().valueOf() - clientDate.valueOf()) / 1000)
-      const payloadBytes = Buffer.from(bytes.slice(0, 8))
-      payloadBytes[4] = timeDelta & 0xFF
-      payloadBytes[5] = timeDelta >> 8 & 0xFF
-      payloadBytes[6] = timeDelta >> 16 & 0xFF
-      payloadBytes[7] = timeDelta >> 24 & 0xFF
+      const clientDate = new Date(`${formatDateComponent(bytes[4])}${formatDateComponent(bytes[5])}-${formatDateComponent(bytes[6])}-${formatDateComponent(bytes[7])} ${formatDateComponent(bytes[8])}:${formatDateComponent(bytes[9])}:${formatDateComponent(bytes[10])}Z`)
+      const serverDate = new Date()
+      const payloadBytes = Buffer.from(bytes)
+      // The Pico is pretty limited in datetime processing capabillites,
+      // so we'll calcullate the RTC offsets here. Also, because we can
+      // only send unsigned bytes then we'll add 128 to the calculated
+      // value so that we can have negative numbers
+      payloadBytes[4] = parseInt((serverDate.getFullYear() - clientDate.getFullYear()) / 100) + 128
+      payloadBytes[5] = parseInt((serverDate.getFullYear() - clientDate.getFullYear()) % 100) + 128
+      payloadBytes[6] = serverDate.getMonth() - clientDate.getMonth() + 128
+      payloadBytes[7] = serverDate.getDate() - clientDate.getDate() + 128
+      payloadBytes[8] = serverDate.getHours() - clientDate.getHours() + 128
+      payloadBytes[9] = serverDate.getMinutes() - clientDate.getMinutes() + 128
+      payloadBytes[10] = serverDate.getSeconds() - clientDate.getSeconds() + 128
       payload = payloadBytes.toString('base64')
-      console.log(`${formatDateComponent(bytes[4] * 100)}${formatDateComponent(bytes[5])}-${formatDateComponent(bytes[6])}-${formatDateComponent(bytes[7])} ${formatDateComponent(bytes[8])}:${formatDateComponent(bytes[9])}:${formatDateComponent(bytes[10])}Z`, clientDate, timeDelta, payload)
+      console.log(clientDate, payload)
       break
 
     case 1:
