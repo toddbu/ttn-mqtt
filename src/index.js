@@ -47,10 +47,31 @@ mqttClient.on('message', async (topic, message) => {
   console.log(bytes)
   switch (decoded_payload.type) {
     case 0:
-      console.log(`datetime request`)
-      const clientDate = new Date(`${formatDateComponent(bytes[4])}${formatDateComponent(bytes[5])}-${formatDateComponent(bytes[6])}-${formatDateComponent(bytes[7])} ${formatDateComponent(bytes[8])}:${formatDateComponent(bytes[9])}:${formatDateComponent(bytes[10])}Z`)
-      const serverDate = new Date()
       const payloadBytes = Buffer.from(bytes)
+
+      console.log(`datetime request`)
+
+      // Check to see if we get a NOP. If we did then send back a packet with no
+      // adjustments since we're just trying to force a download
+      if (bytes[4] +
+          bytes[5] +
+          bytes[6] +
+          bytes[7] +
+          bytes[8] +
+          bytes[9] +
+          bytes[10] === 0) {
+        for (let i = 4; i < 11; i++) {
+          payloadBytes[i] = 128
+        }
+        payload = payloadBytes.toString('base64')
+        console.log('No clientDate', payload, payloadBytes)
+        break;
+      }
+
+      const clientDate = new Date(`${formatDateComponent(bytes[4])}${formatDateComponent(bytes[5])}-${formatDateComponent(bytes[6])}-${formatDateComponent(bytes[7])} ${formatDateComponent(bytes[8])}:${formatDateComponent(bytes[9])}:${formatDateComponent(bytes[10])}Z`)
+      //$ const serverDate = new Date('2023-02-28 04:00:33Z')
+      const serverDate = new Date()
+
       // The Pico is pretty limited in datetime processing capabillites,
       // so we'll calcullate the RTC offsets here. Also, because we can
       // only send unsigned bytes then we'll add 128 to the calculated
@@ -63,7 +84,7 @@ mqttClient.on('message', async (topic, message) => {
       payloadBytes[9] = serverDate.getMinutes() - clientDate.getMinutes() + 128
       payloadBytes[10] = serverDate.getSeconds() - clientDate.getSeconds() + 128
       payload = payloadBytes.toString('base64')
-      console.log(clientDate, payload)
+      console.log(clientDate, payload, payloadBytes)
       break
 
     case 1:
