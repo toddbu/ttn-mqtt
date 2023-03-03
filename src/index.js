@@ -42,9 +42,28 @@ mqttClient.on('message', async (topic, message) => {
   //$ console.log(decoded_payload)
 
   process.stdout.write(`${uplinkMessage.received_at} - `)
-  let payload = 'AA==' // One byte binary 0
+  let payload = 'AA==' // One byte binary 0 as a default
   const bytes = uplinkMessage.decoded_payload.bytes
   console.log(bytes)
+
+  // Figure out the date based on the timestamp
+  //$ const serverDate = new Date('2023-02-28 04:00:33Z')
+  const serverDate = new Date()
+  const serverDow = serverDate.getUTCDay()
+  const serverBeginningOfDay = new Date(serverDate).setUTCHours(0, 0, 0, 0)
+
+  const clientDow = decoded_payload.timestamp >> 17
+  const clientSecondsPastMidnight = decoded_payload.timestamp & 0x1FFFF
+  let offsetDays = clientDow - serverDow
+  if (offsetDays > 1) {
+    offsetDays -= 7
+  }
+  console.log(`ts = ${decoded_payload.timestamp}, sDOW = ${serverDow}, cDOW = ${clientDow}, offsetDays = ${offsetDays}, clientSecondsPastMidnight = ${clientSecondsPastMidnight}`)
+
+  const clientMessageDate = new Date(serverBeginningOfDay.valueOf() + (offsetDays * 86400000) + (clientSecondsPastMidnight * 1000))
+  console.log(`clientMessageDate = ${clientMessageDate}`)
+  const messageTimestamp = uplinkMessage.received_at
+
   switch (decoded_payload.type) {
     case 0:
       const payloadBytes = Buffer.from(bytes)
@@ -64,13 +83,11 @@ mqttClient.on('message', async (topic, message) => {
           payloadBytes[i] = 128
         }
         payload = payloadBytes.toString('base64')
-        console.log('No clientDate', payload, payloadBytes)
+        console.log('NOP', payload, payloadBytes)
         break;
       }
 
       const clientDate = new Date(`${formatDateComponent(bytes[4])}${formatDateComponent(bytes[5])}-${formatDateComponent(bytes[6])}-${formatDateComponent(bytes[7])} ${formatDateComponent(bytes[8])}:${formatDateComponent(bytes[9])}:${formatDateComponent(bytes[10])}Z`)
-      //$ const serverDate = new Date('2023-02-28 04:00:33Z')
-      const serverDate = new Date()
 
       // The Pico is pretty limited in datetime processing capabillites,
       // so we'll calcullate the RTC offsets here. Also, because we can
@@ -105,7 +122,7 @@ mqttClient.on('message', async (topic, message) => {
   const query = 'INSERT INTO temperature.temperature (station_id, received_at, temperature_in_f) VALUES(?, ?, ?)'
   const params = [
     1,
-    uplinkMessage.received_at,
+    messageTimestamp,
     uplinkMessage.decoded_payload.temp
   ]
 
