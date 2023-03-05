@@ -62,7 +62,8 @@ mqttClient.on('message', async (topic, message) => {
 
   const clientMessageDate = new Date(serverBeginningOfDay.valueOf() + (offsetDays * 86400000) + (clientSecondsPastMidnight * 1000))
   console.log(`clientMessageDate = ${clientMessageDate}`)
-  const messageTimestamp = uplinkMessage.received_at
+  //$ const messageTimestamp = uplinkMessage.received_at
+  const messageTimestamp = clientMessageDate
 
   switch (decoded_payload.type) {
     case 0:
