@@ -1,7 +1,8 @@
 const process = require('process')
 const mqtt = require('mqtt')
 const request = require('request')
-const cassandra = require('cassandra-driver');
+const cassandra = require('cassandra-driver')
+const config = require('./config')(process.env.ENV)
 
 const cassandraClient = new cassandra.Client({
   contactPoints: ['10.0.0.80'],
@@ -10,12 +11,12 @@ const cassandraClient = new cassandra.Client({
 });
 
 const mqttClient = mqtt.connect('mqtts://nam1.cloud.thethings.network:8883', {
-  username: 'toddbu-temperature@ttn',
-  password: 'NNSXS.OGAANBBTJQZCAG7OL6RVKB4LGXMY4EXATQUNMUQ.7YYUJILVXUKXISLEUWSDROPA45L52HQK3T4VJSUCTB53EJGOGDDA'
+  username: config.username,
+  password: config.password
 })
 
 mqttClient.on('connect', () => {
-  mqttClient.subscribe('v3/toddbu-temperature@ttn/devices/eui-9876b60000120438/up', (err) => {
+  mqttClient.subscribe(`v3/${config.applicationName}@ttn/devices/${config.deviceEui}/up`, (err) => {
     if (err) {
       console.log(err)
 
@@ -130,9 +131,9 @@ mqttClient.on('message', async (topic, message) => {
   await cassandraClient.execute(query, params, { prepare: true });
 
   //$ How to make this aync call wait???
-  request.post('https://nam1.cloud.thethings.network/api/v3/as/applications/toddbu-temperature/devices/eui-9876b60000120438/down/push', {
+  request.post(`https://nam1.cloud.thethings.network/api/v3/as/applications/${config.applicationName}/devices/${config.deviceEui}/down/push`, {
     headers: {
-      Authorization: 'Bearer NNSXS.OGAANBBTJQZCAG7OL6RVKB4LGXMY4EXATQUNMUQ.7YYUJILVXUKXISLEUWSDROPA45L52HQK3T4VJSUCTB53EJGOGDDA',
+      Authorization: `Bearer ${config.password}`,
       'Content-Type': 'application/json',
       'User-Agent': 'my-integration/my-integration-version'
     },
