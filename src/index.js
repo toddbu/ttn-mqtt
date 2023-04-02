@@ -34,8 +34,8 @@ function formatDateComponent(value) {
 mqttClient.on('message', async (topic, message) => {
   // message is Buffer
   const uplinkMessage = JSON.parse(message.toString()).uplink_message
-  if ((typeof uplinkMessage.f_port === 'undefined') ||
-      (uplinkMessage.f_port !== 2)) {
+  const fPort = uplinkMessage.f_port
+  if (typeof fPort === 'undefined') {
     return
   }
 
@@ -59,7 +59,7 @@ mqttClient.on('message', async (topic, message) => {
   if (offsetDays > 1) {
     offsetDays -= 7
   }
-  console.log(`ts = ${decoded_payload.timestamp}, sDOW = ${serverDow}, cDOW = ${clientDow}, offsetDays = ${offsetDays}, clientSecondsPastMidnight = ${clientSecondsPastMidnight}`)
+  console.log(`fport = ${fPort}, ts = ${decoded_payload.timestamp}, sDOW = ${serverDow}, cDOW = ${clientDow}, offsetDays = ${offsetDays}, clientSecondsPastMidnight = ${clientSecondsPastMidnight}`)
 
   const clientMessageDate = new Date(serverBeginningOfDay.valueOf() + (offsetDays * 86400000) + (clientSecondsPastMidnight * 1000))
   console.log(`clientMessageDate = ${clientMessageDate}`)
@@ -121,16 +121,18 @@ mqttClient.on('message', async (topic, message) => {
   }
   console.log()
 
-  const query = 'INSERT INTO temperature.temperature (station_id, received_at, temperature_in_f) VALUES(?, ?, ?)'
-  const params = [
-    1,
-    messageTimestamp,
-    uplinkMessage.decoded_payload.temp
-  ]
+  if (fPort === 1) {
+    const query = 'INSERT INTO temperature.temperature (station_id, received_at, temperature_in_f) VALUES(?, ?, ?)'
+    const params = [
+      1,
+      messageTimestamp,
+      uplinkMessage.decoded_payload.temp
+    ]
 
-  await cassandraClient.execute(query, params, { prepare: true });
+    await cassandraClient.execute(query, params, { prepare: true });
+  }
 
-  //$ How to make this aync call wait???
+  //$ How to make this aync call wait, or do we really care???
   request.post(`https://nam1.cloud.thethings.network/api/v3/as/applications/${config.applicationName}/devices/${config.deviceEui}/down/push`, {
     headers: {
       Authorization: `Bearer ${config.password}`,
@@ -142,7 +144,7 @@ mqttClient.on('message', async (topic, message) => {
       downlinks: [
         {
           frm_payload: payload,
-          f_port: 1,
+          f_port: fPort,
           priority: 'NORMAL'
         }
       ]
