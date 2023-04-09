@@ -96,7 +96,7 @@ async function handle_app_update(message_type, content_bytes, clientMessageDate,
       ]
 
       await cassandraClient.execute(query, params, { prepare: true });
-      return_payload = Buffer.from([content_bytes[0], content_bytes[1], content_bytes[2], content_bytes[3]])
+      return_payload = Buffer.from([1])
       break
 
     default:
@@ -109,6 +109,8 @@ async function handle_app_update(message_type, content_bytes, clientMessageDate,
 
 mqttClient.on('message', async (topic, message) => {
   let return_payload
+
+  console.log('---')
 
   // message is a Buffer type
   const uplinkMessage = JSON.parse(message.toString()).uplink_message
@@ -164,7 +166,7 @@ mqttClient.on('message', async (topic, message) => {
   }
 
   //$ How to make this async call wait, or do we really care???
-  console.log(`Return payload = ${[...return_payload]}`)
+  console.log(`Return payload = ${ return_payload ? [...return_payload] : 'null' }`)
 
   request.post(`https://nam1.cloud.thethings.network/api/v3/as/applications/${config.applicationName}/devices/${config.deviceEui}/down/push`, {
     headers: {
