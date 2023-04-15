@@ -31,6 +31,41 @@ function formatDateComponent(value) {
   return value.toString().padStart(2, 0)
 }
 
+async function updateBusylight(params) {
+  const { r, g, b, on, off } = params
+
+  await new Promise((resolve, reject) => {
+    request.post(`https://nam1.cloud.thethings.network/api/v3/as/applications/${config.applicationName}/devices/busylight/down/replace`, {
+      headers: {
+        Authorization: `Bearer ${config.password}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'my-integration/my-integration-version'
+      },
+      json: true,
+      body: {
+        downlinks: [
+          {
+            frm_payload: Buffer.from([r, b, g, on, off]).toString('base64'),
+            f_port: 15,
+            priority: 'NORMAL'
+          }
+        ]
+      }
+    }, (err, response, body) => {
+      if (err) {
+        console.log(err)
+        return resolve()
+      }
+
+      if (response && (response.statusCode !== 200)) {
+        console.log('statusCode:', response.statusCode)
+      }
+
+      resolve()
+    })
+  })
+}
+
 function handle_time_sync(message_type, content_bytes, serverDate) {
   let return_payload = null
 
@@ -99,6 +134,32 @@ async function handle_app_update(message_type, content_bytes, clientMessageDate,
       return_payload = Buffer.from([1])
       break
 
+    case 2:
+      console.log(`upper door: ${content_bytes[0] === 0 ? 'open' : 'closed'}`)
+      if (content_bytes[0] === 0) {
+        await updateBusylight({
+          r: 0,
+          g: 255,
+          b: 0,
+          on: 255,
+          off: 0
+        })
+      }
+      break
+
+    case 3:
+      console.log(`lower door: ${content_bytes[0] === 0 ? 'open' : 'closed'}`)
+      if (content_bytes[0] === 0) {
+        await updateBusylight({
+          r: 0,
+          g: 0,
+          b: 255,
+          on: 255,
+          off: 0
+        })
+      }
+      break
+
     default:
       console.log(`unknown message type: ${message_type}`)
       break
@@ -165,34 +226,36 @@ mqttClient.on('message', async (topic, message) => {
       break
   }
 
-  //$ How to make this async call wait, or do we really care???
   console.log(`Return payload = ${ return_payload ? [...return_payload] : 'null' }`)
+  await new Promise((resolve, reject) => {
+    request.post(`https://nam1.cloud.thethings.network/api/v3/as/applications/${config.applicationName}/devices/${config.deviceEui}/down/push`, {
+      headers: {
+        Authorization: `Bearer ${config.password}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'my-integration/my-integration-version'
+      },
+      json: true,
+      body: {
+        downlinks: [
+          {
+            frm_payload: (return_payload ? Buffer.concat([header_bytes, return_payload]) : header_bytes).toString('base64'),
+            f_port: fPort,
+            priority: 'NORMAL'
+          }
+        ]
+      }
+    }, (err, response, body) => {
+      if (err) {
+        console.log(err)
+        return resolve()
+      }
 
-  request.post(`https://nam1.cloud.thethings.network/api/v3/as/applications/${config.applicationName}/devices/${config.deviceEui}/down/push`, {
-    headers: {
-      Authorization: `Bearer ${config.password}`,
-      'Content-Type': 'application/json',
-      'User-Agent': 'my-integration/my-integration-version'
-    },
-    json: true,
-    body: {
-      downlinks: [
-        {
-          frm_payload: (return_payload ? Buffer.concat([header_bytes, return_payload]) : header_bytes).toString('base64'),
-          f_port: fPort,
-          priority: 'NORMAL'
-        }
-      ]
-    }
-  }, (err, response, body) => {
-    if (err) {
-      console.log(err)
-      return
-    }
+      if (response && (response.statusCode !== 200)) {
+        console.log('statusCode:', response.statusCode)
+      }
 
-    if (response && (response.statusCode !== 200)) {
-      console.log('statusCode:', response.statusCode)
-    }
+      resolve()
+    })
   })
 
   //$ mqttClient.end()
