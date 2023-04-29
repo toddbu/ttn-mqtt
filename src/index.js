@@ -66,33 +66,33 @@ async function updateBusylight(params) {
   })
 }
 
-function handle_time_sync(message_type, content_bytes, serverDate) {
-  let return_payload = null
+function handleTimeSync(messageType, contentBytes, serverDate) {
+  let returnPayload = null
 
-  switch (message_type) {
+  switch (messageType) {
     case 0:
-      const payloadBytes = Buffer.from(content_bytes)
+      const payloadBytes = Buffer.from(contentBytes)
 
       console.log(`datetime request`)
 
       // Check to see if we get a NOP. If we did then send back a packet with no
       // adjustments since we're just trying to force a download
-      if (content_bytes[0] +
-          content_bytes[1] +
-          content_bytes[2] +
-          content_bytes[3] +
-          content_bytes[4] +
-          content_bytes[5] +
-          content_bytes[6] === 0) {
+      if (contentBytes[0] +
+          contentBytes[1] +
+          contentBytes[2] +
+          contentBytes[3] +
+          contentBytes[4] +
+          contentBytes[5] +
+          contentBytes[6] === 0) {
         for (let i = 0; i < 7; i++) {
           payloadBytes[i] = 128
         }
-        return_payload = payloadBytes
-        console.log('NOP', return_payload, payloadBytes)
+        returnPayload = payloadBytes
+        console.log('NOP', returnPayload, payloadBytes)
         break
       }
 
-      const clientDate = new Date(`${formatDateComponent(content_bytes[0])}${formatDateComponent(content_bytes[1])}-${formatDateComponent(content_bytes[2])}-${formatDateComponent(content_bytes[3])} ${formatDateComponent(content_bytes[4])}:${formatDateComponent(content_bytes[5])}:${formatDateComponent(content_bytes[6])}Z`)
+      const clientDate = new Date(`${formatDateComponent(contentBytes[0])}${formatDateComponent(contentBytes[1])}-${formatDateComponent(contentBytes[2])}-${formatDateComponent(contentBytes[3])} ${formatDateComponent(contentBytes[4])}:${formatDateComponent(contentBytes[5])}:${formatDateComponent(contentBytes[6])}Z`)
 
       // The Pico is pretty limited in datetime processing capabillites,
       // so we'll calcullate the RTC offsets here. Also, because we can
@@ -105,38 +105,38 @@ function handle_time_sync(message_type, content_bytes, serverDate) {
       payloadBytes[4] = serverDate.getHours() - clientDate.getHours() + 128
       payloadBytes[5] = serverDate.getMinutes() - clientDate.getMinutes() + 128
       payloadBytes[6] = serverDate.getSeconds() - clientDate.getSeconds() + 128
-      return_payload = payloadBytes
-      console.log(clientDate, return_payload, payloadBytes)
+      returnPayload = payloadBytes
+      console.log(clientDate, returnPayload, payloadBytes)
       break
 
     default:
-      console.log(`unknown message type: ${message_type}`)
+      console.log(`unknown message type: ${messageType}`)
       break
   }
 
-  return return_payload
+  return returnPayload
 }
 
-async function handle_app_update(message_type, content_bytes, clientMessageDate, decoded_payload) {
-  let return_payload = null
+async function handleAppUpdate(messageType, contentBytes, clientMessageDate, decodedPayload) {
+  let returnPayload = null
 
-  switch (message_type) {
+  switch (messageType) {
     case 1:
-      console.log(`temperature request: ${decoded_payload.temp}F`)
+      console.log(`temperature request: ${decodedPayload.temp}F`)
       const query = 'INSERT INTO temperature.temperature (station_id, received_at, temperature_in_f) VALUES(?, ?, ?)'
       const params = [
         1,
         clientMessageDate,
-        decoded_payload.temp
+        decodedPayload.temp
       ]
 
       await cassandraClient.execute(query, params, { prepare: true });
-      return_payload = Buffer.from([1])
+      returnPayload = Buffer.from([1])
       break
 
     case 2:
-      console.log(`upper door: ${content_bytes[0] === 0 ? 'open' : 'closed'}`)
-      if (content_bytes[0] === 0) {
+      console.log(`upper door: ${contentBytes[0] === 0 ? 'open' : 'closed'}`)
+      if (contentBytes[0] === 0) {
         await updateBusylight({
           r: 0,
           g: 255,
@@ -148,8 +148,8 @@ async function handle_app_update(message_type, content_bytes, clientMessageDate,
       break
 
     case 3:
-      console.log(`lower door: ${content_bytes[0] === 0 ? 'open' : 'closed'}`)
-      if (content_bytes[0] === 0) {
+      console.log(`lower door: ${contentBytes[0] === 0 ? 'open' : 'closed'}`)
+      if (contentBytes[0] === 0) {
         await updateBusylight({
           r: 0,
           g: 0,
@@ -161,15 +161,15 @@ async function handle_app_update(message_type, content_bytes, clientMessageDate,
       break
 
     default:
-      console.log(`unknown message type: ${message_type}`)
+      console.log(`unknown message type: ${messageType}`)
       break
   }
 
-  return return_payload
+  return returnPayload
 }
 
 mqttClient.on('message', async (topic, message) => {
-  let return_payload
+  let returnPayload
 
   console.log('---')
 
@@ -181,17 +181,17 @@ mqttClient.on('message', async (topic, message) => {
     return
   }
 
-  const decoded_payload = uplinkMessage.decoded_payload
+  const decodedPayload = uplinkMessage.decoded_payload
 
   process.stdout.write(`${uplinkMessage.received_at} - `)
-  const all_bytes = decoded_payload.bytes
-  console.log(all_bytes)
+  const allBytes = decodedPayload.bytes
+  console.log(allBytes)
 
-  const header_bytes = Buffer.from(all_bytes.slice(0, 4))
-  const content_bytes = all_bytes.slice(4)
+  const headerBytes = Buffer.from(allBytes.slice(0, 4))
+  const contentBytes = allBytes.slice(4)
   process.stdout.write('raw bytes: ')
-  for (i = 0; i < 4 + decoded_payload.contentLength; i++) {
-    process.stdout.write(`${all_bytes[i]} `)
+  for (i = 0; i < 4 + decodedPayload.contentLength; i++) {
+    process.stdout.write(`${allBytes[i]} `)
   }
   process.stdout.write('\n')
 
@@ -200,33 +200,33 @@ mqttClient.on('message', async (topic, message) => {
   const serverDow = serverDate.getUTCDay()
   const serverBeginningOfDay = new Date(serverDate).setUTCHours(0, 0, 0, 0)
 
-  const clientDow = decoded_payload.timestamp >> 17
-  const clientSecondsPastMidnight = decoded_payload.timestamp & 0x1FFFF
+  const clientDow = decodedPayload.timestamp >> 17
+  const clientSecondsPastMidnight = decodedPayload.timestamp & 0x1FFFF
   let offsetDays = clientDow - serverDow
   if (offsetDays > 1) {
     offsetDays -= 7
   }
-  console.log(`fport = ${fPort}, ts = ${decoded_payload.timestamp}, sDOW = ${serverDow}, cDOW = ${clientDow}, offsetDays = ${offsetDays}, clientSecondsPastMidnight = ${clientSecondsPastMidnight}`)
+  console.log(`fport = ${fPort}, ts = ${decodedPayload.timestamp}, sDOW = ${serverDow}, cDOW = ${clientDow}, offsetDays = ${offsetDays}, clientSecondsPastMidnight = ${clientSecondsPastMidnight}`)
 
   const clientMessageDate = new Date(serverBeginningOfDay.valueOf() + (offsetDays * 86400000) + (clientSecondsPastMidnight * 1000))
   console.log(`clientMessageDate = ${clientMessageDate}`)
 
   switch (fPort) {
     case 1:
-      return_payload = await handle_app_update(decoded_payload.type, content_bytes, clientMessageDate, decoded_payload)
+      returnPayload = await handleAppUpdate(decodedPayload.type, contentBytes, clientMessageDate, decodedPayload)
       break
 
     case 222:
-      return_payload = handle_time_sync(decoded_payload.type, content_bytes, serverDate)
+      returnPayload = handleTimeSync(decodedPayload.type, contentBytes, serverDate)
       break
 
     default:
       console.log(`Unknown port: ${fPort}`)
-      return_payload = payload
+      returnPayload = payload
       break
   }
 
-  console.log(`Return payload = ${ return_payload ? [...return_payload] : 'null' }`)
+  console.log(`Return payload = ${ returnPayload ? [...returnPayload] : 'null' }`)
   await new Promise((resolve, reject) => {
     request.post(`https://nam1.cloud.thethings.network/api/v3/as/applications/${config.applicationName}/devices/${config.deviceEui}/down/push`, {
       headers: {
@@ -238,7 +238,7 @@ mqttClient.on('message', async (topic, message) => {
       body: {
         downlinks: [
           {
-            frm_payload: (return_payload ? Buffer.concat([header_bytes, return_payload]) : header_bytes).toString('base64'),
+            frm_payload: (returnPayload ? Buffer.concat([headerBytes, returnPayload]) : headerBytes).toString('base64'),
             f_port: fPort,
             priority: 'NORMAL'
           }
