@@ -131,7 +131,7 @@ async function handleAppUpdate(messageType, contentBytes, clientMessageDate, dec
       ]
 
       await cassandraClient.execute(query, params, { prepare: true });
-      returnPayload = Buffer.from([1])
+      //$ returnPayload = Buffer.from([1])
       break
 
     case 2:
@@ -222,41 +222,43 @@ mqttClient.on('message', async (topic, message) => {
 
     default:
       console.log(`Unknown port: ${fPort}`)
-      returnPayload = payload
+      returnPayload = null
       break
   }
 
   console.log(`Return payload = ${ returnPayload ? [...returnPayload] : 'null' }`)
-  await new Promise((resolve, reject) => {
-    request.post(`https://nam1.cloud.thethings.network/api/v3/as/applications/${config.applicationName}/devices/${config.deviceEui}/down/push`, {
-      headers: {
-        Authorization: `Bearer ${config.password}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'my-integration/my-integration-version'
-      },
-      json: true,
-      body: {
-        downlinks: [
-          {
-            frm_payload: (returnPayload ? Buffer.concat([headerBytes, returnPayload]) : headerBytes).toString('base64'),
-            f_port: fPort,
-            priority: 'NORMAL'
-          }
-        ]
-      }
-    }, (err, response, body) => {
-      if (err) {
-        console.log(err)
-        return resolve()
-      }
+  if (returnPayload) {
+    await new Promise((resolve, reject) => {
+      request.post(`https://nam1.cloud.thethings.network/api/v3/as/applications/${config.applicationName}/devices/${config.deviceEui}/down/push`, {
+        headers: {
+          Authorization: `Bearer ${config.password}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'my-integration/my-integration-version'
+        },
+        json: true,
+        body: {
+          downlinks: [
+            {
+              frm_payload: (returnPayload ? Buffer.concat([headerBytes, returnPayload]) : headerBytes).toString('base64'),
+              f_port: fPort,
+              priority: 'NORMAL'
+            }
+          ]
+        }
+      }, (err, response, body) => {
+        if (err) {
+          console.log(err)
+          return resolve()
+        }
 
-      if (response && (response.statusCode !== 200)) {
-        console.log('statusCode:', response.statusCode)
-      }
+        if (response && (response.statusCode !== 200)) {
+          console.log('statusCode:', response.statusCode)
+        }
 
-      resolve()
+        resolve()
+      })
     })
-  })
+  }
 
   //$ mqttClient.end()
 })
